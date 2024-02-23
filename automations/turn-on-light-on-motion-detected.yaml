@@ -1,0 +1,315 @@
+blueprint:
+  name: Light control
+  description: |
+    This blueprint supports the following functions.
+    
+    - Turn on and off the light by a motion sensor
+    - Turn on and off the light by a physical button
+    - Turn on the light and preventing turning off automatically, until clicking once again
+
+  domain: automation
+  input:
+    # Required parameters
+    motion_sensor_id:
+      name: Motion Sensor
+      selector:
+        entity:
+          filter:
+            device_class: motion
+            domain: binary_sensor
+    light_id:
+      name: Light
+      selector:
+        entity:
+          domain: light
+    light_switch:
+      name: Light Switch
+      description: |
+        To create a virtual toggle for light.
+        
+        click - toggle the light as any normal light switch
+        hold - turn on the light and keep it until another click (require
+        `light_override_toggle_id` to be set)
+      selector:
+        device: {}
+    light_override_toggle_id:
+      name: Light Override Toggle ID
+      description: |
+        turn on the light and keep it until another click (require 
+        `light_switch` to be set)
+      selector:
+        entity:
+          domain: input_boolean
+
+    # Default light settings
+    default_brightness:
+      name: Brightness (default)
+      description: Default Brightness
+      default: 100.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 1.0
+          mode: slider
+    default_warmness:
+      name: Warmness (default)
+      description: Default Warmness
+      default: 5500
+      selector:
+        color_temp:
+          unit: kelvin
+          min: 2000
+          max: 6500
+    default_motion_clear_timeout:
+      name: Timeout after motion clear (default)
+      description: Automatically turn off the light after X seconds that motion is cleared
+      default: 30.0
+      selector:
+        number:
+          min: 0
+          max: 3600.0
+          step: 30
+          mode: slider
+          unit_of_measurement: seconds
+
+
+    # Light settings for nighttime
+    nighttime_start:
+      name: Nighttime period (start)
+      description: The time when the nighttime starts.
+      default: '19:00:00'
+      selector:
+        time: {}
+    nighttime_end:
+      name: Nighttime period (end)
+      description: The time when the nighttime ends.
+      default: '23:59:59'
+      selector:
+        time: {}
+    nighttime_brightness:
+      name: Brightness (nighttime)
+      description: Brightness, in nighttime mode
+      default: 80.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 1.0
+          mode: slider
+    nighttime_warmness:
+      name: Warmness (nighttime)
+      description: Warmness, in nighttime mode
+      default: 2500
+      selector:
+        color_temp:
+          unit: kelvin
+          min: 2000
+          max: 6500
+    nighttime_motion_clear_timeout:
+      name: Timeout after motion clear (nighttime)
+      description: Automatically turn off the light after X seconds that motion is cleared, in nighttime mode
+      default: 30.0
+      selector:
+        number:
+          min: 0
+          max: 3600.0
+          step: 30
+          mode: slider
+          unit_of_measurement: seconds
+
+    # Light settings for sleeping time
+    sleeping_time_start:
+      name: Sleeping time period (start)
+      description: The time when the sleeping time starts.
+      default: '00:00:00'
+      selector:
+        time: {}
+    sleeping_time_end:
+      name: Sleeping time period (end)
+      description: The time when the sleeping time ends.
+      default: '08:59:59'
+      selector:
+        time: {}
+    sleeping_time_brightness:
+      name: Brightness (nighttime)
+      description: Brightness, in sleeping time
+      default: 10.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 1.0
+          mode: slider
+    sleeping_time_warmness:
+      name: Warmness (sleeping time)
+      description: Warmness, in sleeping time
+      default: 2500
+      selector:
+        color_temp:
+          unit: kelvin
+          min: 2000
+          max: 6500
+    sleeping_time_motion_clear_timeout:
+      name: Timeout after motion clear (sleeping time)
+      description: Automatically turn off the light after X seconds that motion is cleared, in sleeping time
+      default: 0.0
+      selector:
+        number:
+          min: 0
+          max: 3600.0
+          step: 30
+          mode: slider
+          unit_of_measurement: seconds
+
+# If motion is detected within the delay, we restart the script.
+mode: restart
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input motion_sensor_id
+    from: null
+    to: "on"
+    id: motion_detected
+  - platform: state
+    entity_id: !input motion_sensor_id
+    from: "on"
+    to: "off"
+    id: motion_clear
+  - platform: device
+    domain: mqtt
+    device_id: !input light_switch
+    type: action
+    subtype: single
+    id: switch_clicked_once
+  - platform: device
+    domain: mqtt
+    device_id: !input light_switch
+    type: action
+    subtype: hold
+    id: switch_held
+
+variables:
+  default_brightness: !input default_brightness
+  default_warmness: !input default_warmness
+  default_motion_clear_timeout: !input default_motion_clear_timeout
+
+  nighttime_start: !input nighttime_start
+  nighttime_end: !input nighttime_end
+  nighttime_brightness: !input nighttime_brightness
+  nighttime_warmness: !input nighttime_warmness
+  nighttime_motion_clear_timeout: !input nighttime_motion_clear_timeout
+
+  sleeping_time_start: !input sleeping_time_start
+  sleeping_time_end: !input sleeping_time_end
+  sleeping_time_brightness: !input sleeping_time_brightness
+  sleeping_time_warmness: !input sleeping_time_warmness
+  sleeping_time_motion_clear_timeout: !input sleeping_time_motion_clear_timeout
+
+  is_nighttime: '{{ now() >= today_at(nighttime_start) and now() <= today_at(nighttime_end) }}'
+  is_sleeping_time: '{{ now() >= today_at(sleeping_time_start) and now() <= today_at(sleeping_time_end) }}'
+
+  kelvin: |
+    {% if is_nighttime %}
+      {{ nighttime_warmness }}
+    {% elif is_sleeping_time %}
+      {{ sleeping_time_warmness }}
+    {% else %}
+      {{ default_warmness }}
+    {% endif %}
+  brightness: |
+    {% if is_nighttime %}
+      {{ nighttime_brightness }}
+    {% elif is_sleeping_time %}
+      {{ sleeping_time_brightness }}
+    {% else %}
+      {{ default_brightness }}
+    {% endif %}
+  timeout: |
+    {% if is_nighttime %}
+      {{ nighttime_motion_clear_timeout }}
+    {% elif is_sleeping_time %}
+      {{ sleeping_time_motion_clear_timeout }}
+    {% else %}
+      {{ default_motion_clear_timeout }}
+    {% endif %}
+
+action:
+  - choose:
+      - alias: When motion is detected
+        conditions:
+          - condition: trigger
+            id:
+              - motion_detected
+          - condition: state
+            entity_id: !input light_override_toggle_id
+            state: 'off'
+        sequence:
+          - service: light.turn_on
+            target:
+              entity_id: !input light_id
+            data:
+              kelvin: '{{ kelvin | int }}'
+              brightness_pct: '{{ brightness | int }}'
+
+      - alias: When motion is clear
+        conditions:
+          - condition: trigger
+            id:
+              - motion_clear
+          - condition: state
+            entity_id: !input light_override_toggle_id
+            state: 'off'
+        sequence:
+          - delay:
+              seconds: '{{ timeout | int }}'
+          - service: light.turn_off
+            target:
+              entity_id: !input light_id
+            data:
+              transition: 10
+
+      - alias: When the Light Switch is clicked
+        conditions:
+          - condition: trigger
+            id:
+              - switch_clicked_once
+        sequence:
+          - if:
+              - condition: state
+                entity_id: !input light_id
+                state: 'on'
+            then:
+              - service: light.turn_off
+                target:
+                  entity_id: !input light_id
+                data:
+                  transition: 10
+            else:
+              - service: light.turn_on
+                target:
+                  entity_id: !input light_id
+                data:
+                  kelvin: '{{ kelvin | int }}'
+                  brightness_pct: '{{ brightness | int }}'
+          - service: input_boolean.turn_off
+            target:
+              entity_id: !input light_override_toggle_id
+
+      - alias: When the Light Switch is held
+        conditions:
+          - condition: trigger
+            id:
+              - switch_held
+        sequence:
+          - service: input_boolean.turn_on
+            target:
+              entity_id:
+                - !input light_override_toggle_id
+          - service: light.turn_on
+            target:
+              entity_id: !input light_id
+            data:
+              kelvin: '{{ kelvin | int }}'
+              brightness_pct: '{{ brightness | int }}'
