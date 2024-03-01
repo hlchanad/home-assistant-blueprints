@@ -284,8 +284,6 @@ action:
               - service: light.turn_off
                 target:
                   entity_id: !input light_id
-                data:
-                  transition: 10
             else:
               - service: light.turn_on
                 target:
