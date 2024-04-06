@@ -7,6 +7,12 @@ blueprint:
     - Turn on and off the light by a physical button
     - Turn on the light and preventing turning off automatically, until clicking once again
 
+    Tested devices/ stacks:
+    - Philips: Hue White Ambiance
+    - Aqara: Wireless Mini Switch
+    - Add-on: Zigbee2MQTT
+    - Integration: MQTT
+
   domain: automation
   input:
     # Required parameters
