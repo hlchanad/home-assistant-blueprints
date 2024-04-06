@@ -22,21 +22,26 @@ blueprint:
       selector:
         entity:
           domain: light
-    light_switch:
-      name: Light Switch
+
+    # Optional parameters
+    light_switch_action:
+      name: Light Switch Action Sensor
       description: |
         To create a virtual toggle for light.
         
         click - toggle the light as any normal light switch
         hold - turn on the light and keep it until another click (require
         `light_override_toggle_id` to be set)
+      default:
       selector:
-        device: {}
+        entity:
+          domain: sensor
     light_override_toggle_id:
       name: Light Override Toggle ID
       description: |
         turn on the light and keep it until another click (require 
-        `light_switch` to be set)
+        `light_switch_action` to be set)
+      default:
       selector:
         entity:
           domain: input_boolean
@@ -166,6 +171,9 @@ blueprint:
 mode: restart
 max_exceeded: silent
 
+trigger_variables:
+  light_switch_action: !input light_switch_action
+
 trigger:
   - platform: state
     entity_id: !input motion_sensor_id
@@ -177,20 +185,16 @@ trigger:
     from: "on"
     to: "off"
     id: motion_clear
-  - platform: device
-    domain: mqtt
-    device_id: !input light_switch
-    type: action
-    subtype: single
+  - platform: template
+    value_template: "{{ light_switch_action and is_state(light_switch_action, 'single') }}"
     id: switch_clicked_once
-  - platform: device
-    domain: mqtt
-    device_id: !input light_switch
-    type: action
-    subtype: hold
+  - platform: template
+    value_template: "{{ light_switch_action and is_state(light_switch_action, 'hold') }}"
     id: switch_held
 
 variables:
+  light_override_toggle_id: !input light_override_toggle_id
+
   default_brightness: !input default_brightness
   default_warmness: !input default_warmness
   default_motion_clear_timeout: !input default_motion_clear_timeout
@@ -242,9 +246,8 @@ action:
           - condition: trigger
             id:
               - motion_detected
-          - condition: state
-            entity_id: !input light_override_toggle_id
-            state: 'off'
+          - condition: template
+            value_template: "{{ light_override_toggle_id == None or is_state(light_override_toggle_id, 'off') }}"
         sequence:
           - service: light.turn_on
             target:
@@ -258,9 +261,8 @@ action:
           - condition: trigger
             id:
               - motion_clear
-          - condition: state
-            entity_id: !input light_override_toggle_id
-            state: 'off'
+          - condition: template
+            value_template: "{{ light_override_toggle_id == None or is_state(light_override_toggle_id, 'off') }}"
         sequence:
           - delay:
               seconds: '{{ timeout | int }}'
@@ -291,9 +293,13 @@ action:
                 data:
                   kelvin: '{{ kelvin | int }}'
                   brightness_pct: '{{ brightness | int }}'
-          - service: input_boolean.turn_off
-            target:
-              entity_id: !input light_override_toggle_id
+          - if:
+              - condition: template
+                value_template: "{{ light_override_toggle_id != None }}"
+            then:
+              - service: input_boolean.turn_off
+                target:
+                  entity_id: !input light_override_toggle_id
 
       - alias: When the Light Switch is held
         conditions:
@@ -301,10 +307,13 @@ action:
             id:
               - switch_held
         sequence:
-          - service: input_boolean.turn_on
-            target:
-              entity_id:
-                - !input light_override_toggle_id
+          - if:
+              - condition: template
+                value_template: "{{ light_override_toggle_id != None }}"
+            then:
+              - service: input_boolean.turn_on
+                target:
+                  entity_id: !input light_override_toggle_id
           - service: light.turn_on
             target:
               entity_id: !input light_id
