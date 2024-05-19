@@ -16,7 +16,7 @@ card:
   type: vertical-stack
   cards:
     - type: custom:mushroom-title-card
-      subtitle: Notifications
+      subtitle: Notices
     - type: conditional
       conditions:
         - condition: state
