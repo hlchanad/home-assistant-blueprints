@@ -1,0 +1,90 @@
+type: custom:mod-card
+style:
+  hui-vertical-stack-card$: >
+    /* It hides the mushroom-title-card if no non-hidden siblings.
+     *
+     * ~ hui-conditional-card:not([style*="display: none"])
+     * => any siblings who are not hidden
+     *
+     * :not(:has(~ hui-conditional-card:not([style*="display: none"])))
+     * => don't have any sibling who are not hidden
+     */
+    mushroom-title-card:not(:has(~ hui-conditional-card:not([style*="display: none"]))) {
+      display: none;
+    }
+card:
+  type: vertical-stack
+  cards:
+    - type: custom:mushroom-title-card
+      subtitle: Notifications
+    - type: conditional
+      conditions:
+        - condition: state
+          entity: input_boolean.alarm_panic_mode
+          state: 'on'
+      card:
+        type: custom:mushroom-template-card
+        primary: Panic Mode is on!!
+        icon: mdi:pistol
+        icon_color: red
+        entity: input_boolean.alarm_panic_mode
+        tap_action:
+          action: more-info
+    - type: conditional
+      conditions:
+        - condition: or
+          conditions:
+            - condition: state
+              entity: binary_sensor.is_sleeping_time
+              state: 'on'
+            - condition: state
+              entity: binary_sensor.someone_is_home
+              state: 'off'
+        - condition: state
+          entity: binary_sensor.living_room_balcony_door_contact_sensor_door
+          state: 'on'
+      card:
+        type: custom:mushroom-template-card
+        primary: Balcony Door is opened
+        icon: mdi:door-open
+        icon_color: yellow
+        entity: binary_sensor.living_room_balcony_door_contact_sensor_door
+        tap_action:
+          action: more-info
+    - type: conditional
+      conditions:
+        - condition: state
+          entity: input_boolean.cooker_lid_opened_since_cooking
+          state: 'off'
+        - condition: state
+          entity: input_select.cooker_status
+          state: idle
+      card:
+        type: custom:mushroom-template-card
+        primary: Rice is cooked
+        icon: mdi:rice
+        icon_color: orange
+        entity: input_select.cooker_status
+        tap_action:
+          action: more-info
+    - type: conditional
+      conditions:
+        - condition: state
+          entity: input_boolean.washing_machine_door_opened_since_washing
+          state: 'off'
+        - condition: or
+          conditions:
+            - condition: state
+              entity: input_select.washing_machine_status
+              state: tumbling
+            - condition: state
+              entity: input_select.washing_machine_status
+              state: idle
+      card:
+        type: custom:mushroom-template-card
+        primary: Washing Machine is done
+        icon: mdi:washing-machine
+        icon_color: green
+        entity: input_select.washing_machine_status
+        tap_action:
+          action: more-info
