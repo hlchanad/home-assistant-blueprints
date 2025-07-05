@@ -8,6 +8,7 @@ house like:
 ## Steps
 
 1. Create a `input_text` helper
+
    ![helper.png](helper.png)
 
 2. Copy the [automation.yaml](./automation.yaml) 
