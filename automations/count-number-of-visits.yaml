@@ -1,0 +1,69 @@
+blueprint:
+  name: Count number of visits of a user to a location
+  description: As described in title
+
+  domain: automation
+
+  input:
+    person_id:
+      name: Person ID
+      selector:
+        entity:
+          filter:
+            domain: person
+    zone_id:
+      name: Zone ID
+      description: Only zone with `passive` = `false` could be tracked
+      selector:
+        entity:
+          filter:
+            domain: zone
+    counter_id:
+      name: Counter ID
+      selector:
+        entity:
+          filter:
+            domain: counter
+    wait_time:
+      name: Wait time (in minutes)
+      description: Time to wait before increasing the counter
+      selector:
+        number:
+          mode: box
+          unit_of_measurement: minutes
+      default: 60
+    cooldown_time:
+      name: Cooldown time (in minutes)
+      description: Time to wait before ending the whole automation
+      selector:
+        number:
+          mode: box
+          unit_of_measurement: minutes
+      default: 60
+
+mode: single
+
+trigger_variables:
+  person_id: !input person_id
+  zone_id: !input zone_id
+
+triggers:
+  - trigger: template
+    value_template: "{{ state_attr(zone_id, 'persons') | contains(person_id) }}"
+    id: user-enter-zone
+
+actions:
+  - delay:
+      minutes: !input wait_time
+  - if:
+      - condition: zone
+        entity_id: !input person_id
+        zone: !input zone_id
+    then:
+      - action: counter.increment
+        target:
+          entity_id: !input counter_id
+      - delay:
+          minutes: !input cooldown_time
+        alias: Cooldown to prevent double counting
+    alias: Increase counter if user is still inside the zone after specific time
