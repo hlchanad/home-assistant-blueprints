@@ -1,0 +1,47 @@
+- type: grid
+  cards:
+    - type: heading
+      heading: 🏠 House Status Summary
+      heading_style: title
+      badges:
+        - type: entity
+          show_state: true
+          show_icon: false
+          entity: input_text.ai_assisted_house_feed
+          state_content: last_updated
+          tap_action:
+            action: perform-action
+            perform_action: automation.trigger
+            target:
+              entity_id: automation.update_ai_assisted_home_feed
+            data:
+              skip_condition: true
+        - type: entity
+          show_state: false
+          show_icon: true
+          entity: automation.update_ai_assisted_home_feed
+          name: Refresh
+          icon: mdi:refresh
+          color: blue
+          tap_action:
+            action: perform-action
+            perform_action: automation.trigger
+            target:
+              entity_id: automation.update_ai_assisted_home_feed
+            data:
+              skip_condition: true
+    - type: markdown
+      content: |
+        {% set json = states('input_text.ai_assisted_house_feed') %}
+        {% if json %}
+        {% set items = json | from_json %}
+        
+        {% for line in items.lines %}
+        - {{ line }}
+        {% endfor %}
+        {% else %}
+        _No summary available._
+        {% endif %}
+      grid_options:
+        columns: full
+      text_only: true

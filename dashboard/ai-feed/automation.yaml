@@ -1,0 +1,138 @@
+alias: Update AI Assisted Home Feed
+description: ""
+triggers:
+  - trigger: time_pattern
+    minutes: /30
+conditions: []
+actions:
+  - variables:
+      entities: |
+        {# System Entities #}
+        {% set entities = [
+          {"alarm_control_panel.home_alarm": []},
+          {"sensor.system_monitor_processor_temperature": []},
+        ] %}
+        
+        {# Area Entity - Living Room #}
+        {% set entities = entities + [
+          {"climate.living_room_air_conditioner": ["temperature", "fan_mode"]},
+          {"sensor.living_room_air_conditioner_airq_co2": []},
+          {"sensor.living_room_air_conditioner_airq_tvoc": []},
+        
+          {"sensor.air_purifier_pm2_5": []},
+        
+          {"sensor.living_room_environment_sensor_temperature": []},
+          {"sensor.living_room_environment_sensor_humidity": []}
+        ] %}
+
+        {{ entities }}
+  - action: conversation.process
+    metadata: {}
+    data:
+      agent_id: conversation.chatgpt
+      text: >
+        # Background
+
+
+        You are a smart home assistant summarizing the current status of the
+        house.
+
+
+        I will give you a JSON array of entities, where each entity has:
+
+        - entity_id
+
+        - state
+
+        - last updated time
+
+        - attributes
+
+
+        # Your tasks
+
+
+        1. Review all entities and pick up to 5 of the most notable or
+        interesting statuses to highlight. It's fine to return fewer than 5
+        items if all information are trivial.
+
+
+        2. For numeric air quality or temperature readings (such as CO2, TVOC),
+        interpret the values in plain language, e.g., "good", "moderate", "very
+        high".
+
+
+        3. Identify only the most notable or unusual events, such as:
+          - Doors opening or closing
+          - Motion detected
+          - Appliances starting or finishing
+          - People arriving or leaving
+          - Important or unusual sensor values (e.g., air quality, temperature)
+
+        4. Ignore trivial or expected statuses (like "idle", "off", "charging")
+        unless there is nothing else notable.
+
+
+        5. You may ignore some old information e.g. 8 hours ago. Pick a
+        reasonable TTL for each entity.
+
+
+        6. You may combine some of the related entities into one meaningful item
+
+
+        7. Return the result as a **pure JSON string** with the key "lines",
+        containing a list of short bullet points with emojis. i.e. The string
+        will be parsed as json. Keep it small by removing unnecessary space
+
+
+        8. Do not include any text before or after the JSON array.
+
+
+        9. Do not include any explanations, markdown, or code block formatting.
+        Only output valid JSON.
+
+
+        10. Keep the length to be at most 255 characters, because it is the
+        limit of input_text from Home Assistant
+
+
+        # Suggestions
+
+
+        - Whether the door/ lid of a dishwasher/ cooker is open or not is a very
+        trivial state. It will be useful only after we used the machine. To
+        determine whether it is handled properly after the machine is completed.
+
+
+        - Similar as motion, it will not be interesting if someone is at home.
+
+
+        # Example format
+
+
+        {"lines": ["🚪 Front door opened twice","🍽️ Dishwasher finished","🐱
+        Motion detected in living room"]}
+
+
+        # Data to consider
+
+
+        {% for item in entities %}
+          {% for entity_id, attrs in item.items() %}
+        - {{ entity_id }}: {{ states(entity_id) }}
+          - last_updated: {{ states[entity_id].last_updated }}
+            {% for attr in attrs %}
+          - {{ attr }}: {{ state_attr(entity_id, attr) }}
+            {% endfor %}
+          {% endfor %}
+        {% endfor %}
+    response_variable: response
+    enabled: true
+  - action: input_text.set_value
+    metadata: {}
+    data:
+      value: "{{ response.response.speech.plain.speech }}"
+    target:
+      entity_id: input_text.ai_assisted_house_feed
+    enabled: true
+mode: single
